@@ -11,15 +11,13 @@
 
 #define sgn(x) ((x) < 0 ? -1 : ((x) > 0 ? 1 : 0))
 
-
-
-
+using namespace SummerSpringBot;
 
 //================  MOTOR CONTROL =================
 
 
 
-SSBotMotor::SSBotMotor( uint8_t fwdPin, uint8_t revPin, uint8_t pwmPin, 
+Motor::Motor( uint8_t fwdPin, uint8_t revPin, uint8_t pwmPin, 
                     int maxPWM, int defaultSpeed) :
         _fwdPin(fwdPin), _revPin(revPin), _pwmPin(pwmPin), 
         _maxPWM(maxPWM), _defaultSpeed(defaultSpeed) {
@@ -28,14 +26,14 @@ SSBotMotor::SSBotMotor( uint8_t fwdPin, uint8_t revPin, uint8_t pwmPin,
     _state = STOPPED;
 }
 
-void SSBotMotor::init() {
+void Motor::init() {
     pinMode(_pwmPin, OUTPUT);
     pinMode(_fwdPin, OUTPUT);
     pinMode(_revPin, OUTPUT);
     sendMotorControl();
 }
 
-void SSBotMotor::_setDir(int8_t dir){
+void Motor::_setDir(int8_t dir){
     switch (dir) {
         case 1:
             digitalWrite(_fwdPin, 1);
@@ -50,15 +48,15 @@ void SSBotMotor::_setDir(int8_t dir){
             digitalWrite(_revPin, 0);
             break;
         // default:
-        //     throw std::invalid_argument("SSBotMotor._setDir() only accepts values 1, 0, or -1.");
+        //     throw std::invalid_argument("Motor._setDir() only accepts values 1, 0, or -1.");
     }
 }
 
-void SSBotMotor::_setPWM(uint8_t pwm){
+void Motor::_setPWM(uint8_t pwm){
     analogWrite(_pwmPin, pwm);
 }
 
-uint8_t SSBotMotor::_speedToPWM(uint8_t speed) {
+uint8_t Motor::_speedToPWM(uint8_t speed) {
     if (speed == NO_ARG_FLAG) {
         if (_pwm == 0) 
             return map(_defaultSpeed, 0, 100, 0, _maxPWM);
@@ -69,7 +67,7 @@ uint8_t SSBotMotor::_speedToPWM(uint8_t speed) {
     }
 }
 
-void SSBotMotor::sendMotorControl(){
+void Motor::sendMotorControl(){
     if(_enabled){
         _setDir(_state);
         _setPWM(_pwm);
@@ -79,36 +77,36 @@ void SSBotMotor::sendMotorControl(){
     }
 }
 
-const bool SSBotMotor::isEnabled() {
+bool Motor::isEnabled() {
     return _enabled;
 }
 
-const int8_t SSBotMotor::getState() {
+int8_t Motor::getState() {
     return _state;
 }
 
-const String SSBotMotor::getStateString() {
+String Motor::getStateString() {
     return stateToString(_state);
 }
 
-const uint8_t SSBotMotor::getSpeed() {
+uint8_t Motor::getSpeed() {
     return map(_pwm, 0, 255, 0, 100);
 }
 
-const int8_t SSBotMotor::getVelocity() {
+int8_t Motor::getVelocity() {
     int8_t dir = getState();
     uint8_t speed = getSpeed();
     return dir * speed;
 }
 
-const String SSBotMotor::stateToString(bool enabled) {
+String Motor::stateToString(bool enabled) {
     if (enabled)
         return "ENABLED";
     else
         return "DISABLED";
 }
 
-const String SSBotMotor::stateToString(MotorState state) {
+String Motor::stateToString(MotorState state) {
     switch(state){
         case REV:
             return "REVERSE";
@@ -124,40 +122,40 @@ const String SSBotMotor::stateToString(MotorState state) {
 
 // State Machine
 
-void SSBotMotor::enable(){
+void Motor::enable(){
     _enabled = true;
     sendMotorControl();
 }
 
-void SSBotMotor::disable(){
+void Motor::disable(){
     _enabled = false;
     sendMotorControl();
 }
 
-void SSBotMotor::stop() {
+void Motor::stop() {
     _state = STOPPED;
     _pwm = 0;
     sendMotorControl();
 }
 
-void SSBotMotor::setSpeed(uint8_t speed) {
+void Motor::setSpeed(uint8_t speed) {
     if (_state == STOPPED) 
         _state = FWD;
     _pwm = _speedToPWM(speed);
     sendMotorControl();
 }
 
-void SSBotMotor::fwd() { 
+void Motor::fwd() { 
     _state = FWD; 
     sendMotorControl();
 }
 
-void SSBotMotor::rev() { 
+void Motor::rev() { 
     _state = REV; 
     sendMotorControl();
 }
 
-void SSBotMotor::drive(int8_t speed){
+void Motor::drive(int8_t speed){
     _pwm = _speedToPWM(abs(speed));
     _state = (MotorState)sgn(speed);
     // if (speed == NO_ARG_FLAG){
@@ -168,7 +166,7 @@ void SSBotMotor::drive(int8_t speed){
     // }
 
     // if (speed > 100 || speed < -100)
-    //     throw std::invalid_argument("SSBotMotor.drive() only accepts values between -100 and 100.");
+    //     throw std::invalid_argument("Motor.drive() only accepts values between -100 and 100.");
 
     _pwm = map(abs(speed), 0, 100, 0, _maxPWM);
     sendMotorControl();
@@ -180,7 +178,7 @@ void SSBotMotor::drive(int8_t speed){
 
 
 
-SSBotDoubleMotorController::SSBotDoubleMotorController(
+DualMotors::DualMotors(
         uint8_t fwdPin0, uint8_t revPin0, uint8_t pwmPin0,  uint8_t fwdPin1, uint8_t revPin1, uint8_t pwmPin1, 
         uint8_t maxPWM0, uint8_t maxPWM1, uint8_t defaultSpeed
     ) :
@@ -188,12 +186,12 @@ SSBotDoubleMotorController::SSBotDoubleMotorController(
         _motor1(fwdPin1, revPin1, pwmPin1, maxPWM1, defaultSpeed)
 { }
 
-void SSBotDoubleMotorController::init() {
+void DualMotors::init() {
     _motor0.init();
     _motor1.init();
 }
 
-void SSBotDoubleMotorController::enable(MotorID motorID) {
+void DualMotors::enable(MotorID motorID) {
     switch (motorID) {
         case 0:
             _motor0.enable();
@@ -204,7 +202,7 @@ void SSBotDoubleMotorController::enable(MotorID motorID) {
     }
 }
 
-void SSBotDoubleMotorController::disable(MotorID motorID) {
+void DualMotors::disable(MotorID motorID) {
     switch (motorID) {
         case 0:
             _motor0.disable();
@@ -215,7 +213,7 @@ void SSBotDoubleMotorController::disable(MotorID motorID) {
     }
 }
 
-void SSBotDoubleMotorController::stop(MotorID motorID) {
+void DualMotors::stop(MotorID motorID) {
     switch (motorID) {
         case 0:
             _motor0.stop();
@@ -226,7 +224,7 @@ void SSBotDoubleMotorController::stop(MotorID motorID) {
     }
 }
 
-void SSBotDoubleMotorController::setSpeed(MotorID motorID, uint8_t speed) {
+void DualMotors::setSpeed(MotorID motorID, uint8_t speed) {
     switch (motorID) {
         case 0:
             _motor0.setSpeed(speed);
@@ -237,7 +235,7 @@ void SSBotDoubleMotorController::setSpeed(MotorID motorID, uint8_t speed) {
     }
 }
 
-void SSBotDoubleMotorController::drive(MotorID motorID, int8_t speed) {
+void DualMotors::drive(MotorID motorID, int8_t speed) {
     switch (motorID) {
         case 0:
             _motor0.drive(speed);
@@ -248,7 +246,7 @@ void SSBotDoubleMotorController::drive(MotorID motorID, int8_t speed) {
     }
 }
 
-const bool SSBotDoubleMotorController::isEnabled(MotorID id) {
+bool DualMotors::isEnabled(MotorID id) {
     switch (id) {
         case 0:
             return _motor0.isEnabled();
@@ -259,7 +257,7 @@ const bool SSBotDoubleMotorController::isEnabled(MotorID id) {
     }
 }
 
-const int8_t SSBotDoubleMotorController::getState(MotorID id) {
+int8_t DualMotors::getState(MotorID id) {
     switch (id) {
         case 0:
             return _motor0.getState();
@@ -270,7 +268,7 @@ const int8_t SSBotDoubleMotorController::getState(MotorID id) {
     }
 }
 
-const String SSBotDoubleMotorController::getStateString(MotorID id) {
+String DualMotors::getStateString(MotorID id) {
     switch (id) {
         case 0:
             return _motor0.getStateString();
@@ -281,7 +279,7 @@ const String SSBotDoubleMotorController::getStateString(MotorID id) {
     }
 }
 
-const uint8_t SSBotDoubleMotorController::getSpeed(MotorID id) {
+uint8_t DualMotors::getSpeed(MotorID id) {
     switch (id) {
         case 0:
             return _motor0.getSpeed();
@@ -292,7 +290,7 @@ const uint8_t SSBotDoubleMotorController::getSpeed(MotorID id) {
     }
 }
 
-const int8_t SSBotDoubleMotorController::getVelocity(MotorID id) {
+int8_t DualMotors::getVelocity(MotorID id) {
     switch (id) {
         case 0:
             return _motor0.getVelocity();
@@ -303,11 +301,11 @@ const int8_t SSBotDoubleMotorController::getVelocity(MotorID id) {
     }
 }
 
-void SSBotDoubleMotorController::driveFwd(MotorID motorID, uint8_t speed) {
+void DualMotors::driveFwd(MotorID motorID, uint8_t speed) {
     drive(motorID, speed);
 }
 
-void SSBotDoubleMotorController::driveRev(MotorID motorID, uint8_t speed) {
+void DualMotors::driveRev(MotorID motorID, uint8_t speed) {
     drive(motorID, -speed);
 }
 
@@ -316,7 +314,7 @@ void SSBotDoubleMotorController::driveRev(MotorID motorID, uint8_t speed) {
 //////////////////////////////////////////////////////////////////////
 
 
-SSBotDifferentialDriveMC::SSBotDifferentialDriveMC(
+DifferentialDrive::DifferentialDrive(
     uint8_t leftFwdPin, uint8_t leftRevPin, uint8_t leftPwmPin, 
     uint8_t rightFwdPin, uint8_t rightRevPin, uint8_t rightPwmPin, 
     uint8_t leftMaxPWM, uint8_t rightMaxPWM, uint8_t defaultSpeed) : 
@@ -329,31 +327,31 @@ SSBotDifferentialDriveMC::SSBotDifferentialDriveMC(
     _speed = 0;
 };
 
-void SSBotDifferentialDriveMC::init(){
+void DifferentialDrive::init(){
     _leftWheel.init();
     _rightWheel.init();
 }
 
-void SSBotDifferentialDriveMC::enable() {
+void DifferentialDrive::enable() {
     _enabled = true;
     _leftWheel.enable();
     _rightWheel.enable();
 }
 
-void SSBotDifferentialDriveMC::disable() {
+void DifferentialDrive::disable() {
     _enabled = false;
     _leftWheel.disable();
     _rightWheel.disable();
 }
 
-void SSBotDifferentialDriveMC::stop() {
+void DifferentialDrive::stop() {
     _state = STOPPED;
     _speed = 0;
     _leftWheel.stop();
     _rightWheel.stop();
 }
 
-void SSBotDifferentialDriveMC::setSpeed(uint8_t speed) {
+void DifferentialDrive::setSpeed(uint8_t speed) {
     if (_state == STOPPED) 
         _state = FWD;
     _speed = _speedArgHandler(speed);
@@ -362,30 +360,24 @@ void SSBotDifferentialDriveMC::setSpeed(uint8_t speed) {
 }
 
 
-void SSBotDifferentialDriveMC::drive(int8_t speed) {
+void DifferentialDrive::drive(int8_t speed) {
     _speed = _speedArgHandler(abs(speed));
     _state = (MotorState) sgn(speed);
     speed = _state * _speed;
-
-    // Serial.print(F("State: "));
-    // Serial.println(_state);
-    // Serial.print(F("Speed: "));
-    // Serial.println(_speed);
-    // Serial.println();
 
     _leftWheel.drive(speed);
     _rightWheel.drive(speed);
 }
 
-void SSBotDifferentialDriveMC::fwd(uint8_t speed) {
+void DifferentialDrive::fwd(uint8_t speed) {
     drive(speed);
 }
 
-void SSBotDifferentialDriveMC::rev(uint8_t speed) {
+void DifferentialDrive::rev(uint8_t speed) {
     drive(-speed);
 }
 
-void SSBotDifferentialDriveMC::turnLeft(uint8_t speed) {
+void DifferentialDrive::turnLeft(uint8_t speed) {
     _speed = _speedArgHandler(speed);
     _state = TURN_LEFT;
 
@@ -393,7 +385,7 @@ void SSBotDifferentialDriveMC::turnLeft(uint8_t speed) {
     _rightWheel.drive(_speed);
 }
 
-void SSBotDifferentialDriveMC::turnRight(uint8_t speed) {
+void DifferentialDrive::turnRight(uint8_t speed) {
     _speed = _speedArgHandler(speed);
     _state = TURN_RIGHT;
 
@@ -403,7 +395,7 @@ void SSBotDifferentialDriveMC::turnRight(uint8_t speed) {
 
 
 
-const int8_t SSBotDifferentialDriveMC::getVelocity()
+int8_t DifferentialDrive::getVelocity()
 {
     int8_t velocity;
     switch (_state) {
@@ -422,26 +414,26 @@ const int8_t SSBotDifferentialDriveMC::getVelocity()
     return velocity;
 }
 
-const SSBotDifferentialDriveMC::MotorState SSBotDifferentialDriveMC::getState() {
+DifferentialDrive::MotorState DifferentialDrive::getState() {
     return _state;
 }
 
-const String SSBotDifferentialDriveMC::getStateString() {
+String DifferentialDrive::getStateString() {
     return stateToString(_state);
 }
 
-const bool SSBotDifferentialDriveMC::isEnabled() {
+ bool DifferentialDrive::isEnabled() {
     return _enabled;
 }
 
-const String SSBotDifferentialDriveMC::stateToString(bool enabled) {
+String DifferentialDrive::stateToString(bool enabled) {
     if (enabled)
         return "ENABLED";
     else
         return "DISABLED";
 }
 
-const String SSBotDifferentialDriveMC::stateToString(MotorState state) {
+String DifferentialDrive::stateToString(MotorState state) {
     switch(state){
         case REV:
             return "REVERSE";
@@ -461,7 +453,7 @@ const String SSBotDifferentialDriveMC::stateToString(MotorState state) {
         }
 }
 
-uint8_t SSBotDifferentialDriveMC::_speedArgHandler(uint8_t speed) {
+uint8_t DifferentialDrive::_speedArgHandler(uint8_t speed) {
     if (speed == NO_ARG_FLAG) {
         if (_speed == 0) 
             speed = _defaultSpeed;
