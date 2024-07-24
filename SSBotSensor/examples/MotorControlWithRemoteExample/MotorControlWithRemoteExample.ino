@@ -51,6 +51,15 @@ createBufferedOutput(serialTx, SERIALRX_OUTPUT_BUFFER_LEN, DROP_UNTIL_EMPTY);
 /// --------------------- MAIN --------------------- ///
 
 void setup() {
+  // set up serialRx communication
+  Serial.begin(115200);
+  while (!Serial); // wait for connection
+  // SafeString::setOutput(Serial); // enable error messages and SafeString.debug() serialTx to be sent to Serial
+  serialRx.connect(Serial);
+  //   serialRx.echoOn(); // echo back all input; off by default
+  serialTx.connect(Serial);
+
+  IR.init();
   motors.init();
 }
 
@@ -61,26 +70,24 @@ void loop() {
     if (IR.isValid(command)) {
         remoteControl(command);
     }
-    // otherwise, continue execution
+    // continue looping
 }
 
 // respond to user controls sent from IR Remote buttons
 void remoteControl(IRSensor::IRCommand command){
-    createSafeString(serialTxMsg, SERIAL_TX_BUFFER_SIZE);
-    
     if (command == IRSensor::CMD_PLAY)
     {
         if (motors.isEnabled())
         {
             motors.disable();
-            serialTxMsg = F("[REMOTE] Play state changed to DISABLED.");
+            serialTx.print("[REMOTE] Play state changed to DISABLED.");
         } // end of if(motors.isEnabled)
         else
         {
             motors.enable();
-            serialTxMsg = F("[REMOTE] Play state changed to ENABLED. Resuming execution with motor state ");
-            serialTxMsg += motors.getStateString().c_str();
-            serialTxMsg += F(".\n");
+            serialTx.print(F("[REMOTE] Play state changed to ENABLED. Resuming execution with motor state "));
+            serialTx.print(motors.getStateString().c_str());
+            serialTx.print(".");
         } // end of else
 
     } // end of if(command==IRSensor::CMD_PLAY)
@@ -113,12 +120,12 @@ void remoteControl(IRSensor::IRCommand command){
         // no-op
     } // end of switch(command)
 
-    serialTxMsg = F("[REMOTE] Motor state changed to: ");
-    serialTxMsg += motors.getStateString().c_str();
-    serialTxMsg += F(".\n"); 
+    serialTx.print(F("[REMOTE] Motor state changed to: "));
+    serialTx.print(motors.getStateString().c_str());
+    serialTx.print(F(".")); 
 
   } // end of else 
-  serialTx.print(serialTxMsg);
+  serialTx.println();
 
 } // end of remote control
 
