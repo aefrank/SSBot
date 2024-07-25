@@ -1,168 +1,222 @@
-#include <SSBotSensor.hpp>
 #include <SSBotMotor.hpp>
+#include <SSBotSensor.hpp>
+#include <string.h>
 
 using namespace SummerSpringBot;
 
 
-// ======================================================================================
-// ===================== GLOBALS (accessible by entire program )=========================
-// ======================================================================================
 
-// -------- Hardware Interfaces --------
+///////////////////////////////////////////////////////////////////////
+// *********************  HARDWARE INTERFACE  ********************* ///
+///////////////////////////////////////////////////////////////////////
 
-// serial communication
+// /// --------------------- SERIAL COMMUNICATION  --------------------- ///
+
 #include "SafeStringReader.h"
 #include "BufferedOutput.h"
 
-#define SERIALRX_DELIM " ,\r\n"
-#define SERIALRX_MAX_CMD_LEN 8
-#define SERIALRX_OUTPUT_BUFFER_LEN 64
+#define BAUD_RATE 115200
+#define SSBOTSERIAL_RX_DELIM " ,\r\n"
+#define SSBOTSERIAL_RX_BUFFER_LEN 8
+#define SSBOTSERIAL_TX_BUFFER_LEN 63
 
-createSafeStringReader(serialRx, SERIALRX_MAX_CMD_LEN, SERIALRX_DELIM);
-createBufferedOutput(serialTx, SERIALRX_OUTPUT_BUFFER_LEN, DROP_UNTIL_EMPTY);
+createSafeStringReader(serialRx, SSBOTSERIAL_RX_BUFFER_LEN, SSBOTSERIAL_RX_DELIM);
+createBufferedOutput(serialTx, SSBOTSERIAL_TX_BUFFER_LEN, DROP_UNTIL_EMPTY);
 
-#define SERIAL_CONNECT_TIMEOUT_MS 2000 
-#define SERIAL_BAUD_RATE 115200
+void serialInit(){
+  Serial.begin(BAUD_RATE);
+  delay(2000);
+  serialRx.connect(Serial);
+  serialTx.connect(Serial);
+  serialTx.println(F("Serial communication ready."));
+}
 
-// ir sensor
-#define IR_SENSOR_PIN 2
-IRSensor IR(IR_SENSOR_PIN);
+
+/// --------------------- MOTOR CONTROLLER  --------------------- ///
+
+const uint8_t leftMotorPWMPin = 10;
+const uint8_t leftMotorFwdPin = 11;
+const uint8_t leftMotorRevPin = 12;
+
+const uint8_t rightMotorPWMPin = 9;
+const uint8_t rightMotorFwdPin = 7;
+const uint8_t rightMotorRevPin = 8;
+
+const uint8_t leftMotorMaxPWM  = 255;
+const uint8_t rightMotorMaxPWM = 255;
+
+DifferentialDrive motors(
+    leftMotorFwdPin,  leftMotorRevPin,  leftMotorPWMPin, 
+    rightMotorFwdPin, rightMotorRevPin, rightMotorPWMPin, 
+    leftMotorMaxPWM,  rightMotorMaxPWM);
 
 
-// sonar
+/// --------------------- IR SENSOR CONFIGURATION --------------------- ///
+
+const uint8_t irSensorPin = 2;
+IRSensor remote(irSensorPin);
+
+
+/// --------------------- SONAR CONFIGURATION --------------------- ///
+
 #define SONAR_TRIG_PIN 3
 #define SONAR_ECHO_PIN 4
 #define CLEARANCE_THRESHOLD 10 // cm
 Sonar sonar(SONAR_TRIG_PIN, SONAR_ECHO_PIN);
 
 
-// motor controller
-#define LEFT_PWM_PIN 10
-#define LEFT_FWD_PIN 11
-#define LEFT_REV_PIN 12
+///////////////////////////////////////////////////////////////////////
+// *************************    MAIN    *************************** ///
+///////////////////////////////////////////////////////////////////////
 
-#define RIGHT_PWM_PIN 9
-#define RIGHT_FWD_PIN 7
-#define RIGHT_REV_PIN 8
-
-#define LEFT_MAX_PWM  200
-#define RIGHT_MAX_PWM 255
-
-DifferentialDrive motors(
-    LEFT_FWD_PIN, LEFT_REV_PIN, LEFT_PWM_PIN, 
-    RIGHT_FWD_PIN, RIGHT_REV_PIN, RIGHT_PWM_PIN, 
-    LEFT_MAX_PWM, RIGHT_MAX_PWM);
-
-
-
-// ======================================================================================
-// ================= MAIN CONTROL LOOP (how the rest of the code gets run) ==============
-// ======================================================================================
-
-// -------- setup --------
+/// --------------------- SETUP --------------------- ///
 
 void setup() {
-  // set up serial communication
-  serialSetup();
-
-  // initialize hardware interface
+  serialInit();
+  remote.init();
   sonar.init();
-  IR.init();
   motors.init();
 }
 
-// -------- loop --------
 
-// put your main code here, to run repeatedly
+/// --------------------- LOOP --------------------- ///
 
 void loop() {
-  // User Control via IR remote
-  IRSensor::IRCommand command = IR.query();
-  if (IR.isValid(command)) {
+  serialTx.nextByteOut(); // must call every loop to keep serial output working
+
+  // read IR Sensor
+  IRCommand command = remote.query();
+  // react if a command has been sent
+  if (IRSensor::isValid(command)) {
     remoteControl(command);
   }
   // Obstacle avoidance via ultrasonic sensor
-  if(!sonar.clearAhead()){
-    obstacleAvoidance();
+  if(!sonar.clearAhead()) {
+    avoidObstacles();
   }
 }
 
+// Check ultrasonic sensor for nearby obstacles and STOP if too close and moving forward
+void avoidObstacles(){
+  if(motors.getState() == DifferentialDrive::FWD) {
+    motors.stop();
+  }
+  else {
+    motors.fwd();
+  }
+}
 
-// ======================================================================================
-// ======== FUNCTIONS (reusable code snippets to use in the main control loop) ==========
-// ======================================================================================
+void printRemoteCommand(IRCommand command, bool newline=false);
+void printEnableStateChange(bool newline=false);
+void printMotorStateChange(bool newline=false);
 
-void serialSetup(){
-  Serial.begin(SERIAL_BAUD_RATE);
-  unsigned long serialConnectStart = millis();
-  while (!Serial && (millis()-serialConnectStart < SERIAL_CONNECT_TIMEOUT_MS)); // wait for connection for a few seconds
-  serialRx.connect(Serial);
-  serialTx.connect(Serial);
+// respond to user controls sent from IR Remote buttons
+void remoteControl(IRCommand command){
+  printRemoteCommand(command, false);
+  if (command == CMD_PLAY)  {
+    if (motors.isEnabled()) {
+        motors.disable();
+    } 
+    else {
+        motors.enable();
+    } 
+    printEnableStateChange();
+  } 
+  else {
+    bool motorStateChange = false;
+    switch (command) {
+      // CH = STOPPED
+      case CMD_CH:
+        motors.stop();
+        motorStateChange = true;
+        break;
+      // CH+ = FWD
+      case CMD_CHUP:
+        motors.fwd();
+        motorStateChange = true;
+        break;
+      // CH- = REV
+      case CMD_CHDOWN:
+        motors.rev();
+        motorStateChange = true;
+        break;
+      // << = TURN_LEFT
+      case CMD_PREV:
+        motors.turnLeft();
+        motorStateChange = true;
+        break;
+      // << = TURN_RIGHT
+      case CMD_NEXT:
+        motors.turnRight();
+        motorStateChange = true;
+        break;
+      // any of the other commands  
+      default:
+        ;
+        // no-op
+    } // end of switch(command)
+
+    if (motorStateChange)
+        printMotorStateChange();
+    else 
+      serialTx.print("(no-op) ");
+
+  } // end of else 
+
+  serialTx.println();
+
+} // end of remote control
+
+
+void printRemoteCommand(IRCommand command, bool newline=false){
+  serialTx.print(F("[REMOTE] Button press: "));
+  serialTx.print(padRight(IRSensor::str(command).c_str(), 4));
+  serialTx.print(F(" |  "));
+  if (newline) serialTx.println();
 }
 
 
-// Check ultrasonic sensor for nearby obstacles and STOP if too close and moving forward
-void obstacleAvoidance(){
-  switch(motors.getState()){
-    case DifferentialDrive::FWD:
-        serialTx.println(F("[SONAR] Obstacle detected close ahead! Stopping motors..."));
-        motors.stop();
-  default: // no-op on MotorState REV, STOPPED, TURN_RIGHT, TURN_LEFT
-    break;
-  } 
-} 
+void printMotorStateChange(bool newline=false){
+  serialTx.print(F("Motor state changed to "));
+  serialTx.print(motors.getStateString().c_str());
+  if (!motors.isEnabled())
+    serialTx.print(" (currently DISABLED)");
+  serialTx.print(F("."));
+  if (newline) serialTx.println();
+}
+
+void printEnableStateChange(bool newline=false){
+  if (motors.isEnabled()){
+    serialTx.print(F("Play state changed to ENABLED. Resuming execution with motor state "));
+    serialTx.print(motors.getStateString().c_str());
+    serialTx.print(F(". "));
+  } else {
+    serialTx.print(F("Play state changed to DISABLED"));
+    serialTx.print(F(" (motor state: "));
+    serialTx.print(motors.getStateString().c_str());
+    serialTx.print(F("). "));
+  }
+  if (newline) serialTx.println();
+}
 
 
 
-// Respond to user controls sent from IR Remote buttons
-void remoteControl(IRSensor::IRCommand command){
-    createSafeString(serialTxMsg, SERIAL_TX_BUFFER_SIZE);
-  if (command == IRSensor::CMD_PLAY) {
-      if (motors.isEnabled()) {
-        motors.disable();
-        serialTxMsg = F("[REMOTE] Play state changed to DISABLED.");
-      } 
-      else {
-          motors.enable();
-          serialTxMsg = F("[REMOTE] Play state changed to ENABLED. Resuming execution with motor state ");
-          serialTxMsg += motors.getStateString().c_str();
-          serialTxMsg += F(".\n");
-      } 
-  } // end of if(command==IRSensor::CMD_PLAY)
-  else {
-    switch (command) {
-      // CH = STOPPED
-      case IRSensor::CMD_CH:
-        motors.stop();
-        break;
-      // CH+ = FWD
-      case IRSensor::CMD_CHUP:
-        motors.fwd();
-        break;
-      // CH- = REV
-      case IRSensor::CMD_CHDOWN:
-        motors.rev();
-        break;
-      // << = TURN_LEFT
-      case IRSensor::CMD_PREV:
-        motors.turnLeft();
-        break;
-      // << = TURN_RIGHT
-      case IRSensor::CMD_NEXT:
-        motors.turnRight();
-        break;
-      default:
-        ; // no-op
-    } // end of switch(command)
+char* padRight(char* str, size_t fixedWidth) { 
+  static char buffer[SSBOTSERIAL_TX_BUFFER_LEN]; 
+  size_t L = strlen(str);
+  char *b = buffer;
+  char *s = str;
 
-    serialTxMsg = F("[REMOTE] Motor state changed to: ");
-    serialTxMsg += motors.getStateString().c_str();
-    serialTxMsg += F(".\n"); 
+  // write chars from str into buffer from left to right
+  while ( (b-buffer < L) && (b-buffer < fixedWidth) && (b-buffer < SSBOTSERIAL_TX_BUFFER_LEN))
+    *b++ = *s++; // overwite value at b with value at s, then increment both b and s
+  
+  // then pad any remaining buffer with whitespace
+  while ((b < buffer + fixedWidth) && (b < buffer + SSBOTSERIAL_TX_BUFFER_LEN) ) 
+    *b++ = ' '; // overwrite at b, then increment
 
-  } // end of else 
-    serialTx.print(serialTxMsg);
-
-} // end of remoteControl
-
-
-
+  // b points to end of buffer; add null-termination
+  *b = '\0'; 
+  
+  return buffer;
+}
