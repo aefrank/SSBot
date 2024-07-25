@@ -1,10 +1,43 @@
+
 ///////////////////////////////////////////////////////////////////////
-// *********************  CODE SETUP  ********************* ///
+//// ***********************  TEAM CHOICE  ************************ ////
 ///////////////////////////////////////////////////////////////////////
 
-// if two-player, uncomment your team
-#define BLUE_TEAM 0
-// #define RED_TEAM 1
+// if two-player, uncomment your team. If single-player, comment out both.
+
+/* Blue team control (top half of remote):
+
+           CH         
+          (FWD)
+
+  <<        >>         PLAY
+(LEFT)    (STOP)      (RIGHT)
+
+            +         EQ
+          (REV)     (PAUSE)
+
+*/
+#define BLUE_TEAM 
+
+
+/* Red team controls (bottom half of remote):
+
+           2         
+          (FWD)
+
+  4         5         6
+(LEFT)    (STOP)      (RIGHT)
+
+            8         9
+          (REV)     (PAUSE)
+
+*/
+// #define RED_TEAM 
+
+
+///////////////////////////////////////////////////////////////////////
+//// ***********************  CODE SETUP  ************************ ////
+///////////////////////////////////////////////////////////////////////
 
 #include <SSBotMotor.hpp>
 #include <SSBotSensor.hpp>
