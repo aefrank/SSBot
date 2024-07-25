@@ -1,30 +1,17 @@
+///////////////////////////////////////////////////////////////////////
+// *********************  CODE SETUP  ********************* ///
+///////////////////////////////////////////////////////////////////////
+
+// if two-player, uncomment your team
+#define BLUE_TEAM 0
+// #define RED_TEAM 1
+
 #include <SSBotMotor.hpp>
 #include <SSBotSensor.hpp>
 #include <string.h>
 
 using namespace SummerSpringBot;
 
-#define BLUE 0
-#define RED 1
-
-#define TEAM RED
-
-#if TEAM==BLUE
-#define FWD_BUTTON    CMD_CH
-#define REV_BUTTON    CMD_VOLUP
-#define LEFT_BUTTON   CMD_PREV
-#define RIGHT_BUTTON  CMD_PLAY
-#define STOP_BUTTON   CMD_NEXT
-#define ENABLE_BUTTON CMD_EQ
-#endif
-#if TEAM==RED
-#define FWD_BUTTON    CMD_2
-#define REV_BUTTON    CMD_8
-#define LEFT_BUTTON   CMD_4
-#define RIGHT_BUTTON  CMD_6
-#define STOP_BUTTON   CMD_5
-#define ENABLE_BUTTON CMD_9
-#endif
 
 ///////////////////////////////////////////////////////////////////////
 // *********************  HARDWARE INTERFACE  ********************* ///
@@ -71,8 +58,8 @@ DifferentialDrive motors(
     leftMotorMaxPWM,  rightMotorMaxPWM);
 
 
-/// --------------------- IR SENSOR CONFIGURATION --------------------- ///
-// ir sensor
+/// --------------------- IR REMOTE CONFIGURATION --------------------- ///
+
 const uint8_t irSensorPin = 2;
 IRSensor remote(irSensorPin);
 
