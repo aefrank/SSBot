@@ -1,4 +1,7 @@
 
+#ifndef SSBOT_SENSOR_H
+#define SSBOT_SENSOR_H
+
 #include <string.h>
 #include "Arduino.h"
 #include <NewPing.h>
@@ -6,6 +9,7 @@
 #define DECODE_NEC      
 #define USE_IRREMOTE_HPP_AS_PLAIN_INCLUDE
 #include <IRremote.hpp>
+
 
 namespace SummerSpringBot {
 
@@ -30,11 +34,7 @@ class Sonar{
 
 // ------------------ IR Receiver ------------------
 
-class IRSensor {
-    const uint8_t _IRpin;
-    unsigned long _timeOfLastInterrupt;
-  public:
-    enum IRCommand {
+enum IRCommand {
       ERROR = -1, 
       NONE,
       CMD_CHDOWN,   CMD_CH,     CMD_CHUP, 
@@ -45,6 +45,11 @@ class IRSensor {
       CMD_4,        CMD_5,      CMD_6, 
       CMD_7,        CMD_8,      CMD_9,
     };
+
+class IRSensor {
+    const uint8_t _IRpin;
+    unsigned long _timeOfLastInterrupt;
+  public:
     IRSensor(uint8_t IRpin);
     void init();
     bool commandReceived();
@@ -57,6 +62,34 @@ class IRSensor {
 
 };
 
+// 2-player Button Configurations
+#ifdef BLUE_TEAM
+#define FWD_BUTTON    CMD_CH
+#define REV_BUTTON    CMD_VOLUP
+#define LEFT_BUTTON   CMD_PREV
+#define RIGHT_BUTTON  CMD_PLAY
+#define STOP_BUTTON   CMD_NEXT
+#define ENABLE_BUTTON CMD_EQ
+#elif defined RED_TEAM
+#define FWD_BUTTON    CMD_2
+#define REV_BUTTON    CMD_8
+#define LEFT_BUTTON   CMD_4
+#define RIGHT_BUTTON  CMD_6
+#define STOP_BUTTON   CMD_5
+#define ENABLE_BUTTON CMD_9
+#else
+// default 1-player mode
+#define FWD_BUTTON    CMD_CHUP
+#define REV_BUTTON    CMD_CHDOWN
+#define STOP_BUTTON   CMD_CH
+#define LEFT_BUTTON   CMD_PREV
+#define RIGHT_BUTTON  CMD_NEXT
+#define ENABLE_BUTTON CMD_PLAY
+#endif
+
 
 
 } // end of namespace SummerSpringBot
+
+
+#endif

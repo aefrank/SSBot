@@ -57,7 +57,7 @@ bool IRSensor::commandReceived() {
 }
 
 
-IRSensor::IRCommand IRSensor::query(){
+IRCommand IRSensor::query(){
   if(commandReceived()){
     return _currentCommand();
   }
@@ -70,7 +70,7 @@ bool IRSensor::isValid(IRCommand command) {
   return (command > 0);
 }
 
-IRSensor::IRCommand IRSensor::_currentCommand(){
+IRCommand IRSensor::_currentCommand(){
   switch (IrReceiver.decodedIRData.command) {
     case 69:
       return CMD_CHDOWN;
@@ -168,7 +168,7 @@ String IRSensor::_raw2str(uint32_t command){
   }
 }
 
-String IRSensor::str(IRSensor::IRCommand command){
+String IRSensor::str(IRCommand command){
   switch (command){
     case CMD_CHDOWN:
       return "CH-";
